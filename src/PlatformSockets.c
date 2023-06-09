@@ -72,7 +72,7 @@ int setNonFatalRecvTimeoutMs(SOCKET s, int timeoutMs) {
     // losing some data in a very rare case is fine, especially because we get to
     // halve the number of syscalls per packet by avoiding select().
     return setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeoutMs, sizeof(timeoutMs));
-#elif defined(__WIIU__)
+#elif defined(__WIIU__) || defined(__3DS__)
     // timeouts aren't supported on Wii U
     return -1;
 #else
@@ -704,7 +704,7 @@ int initializePlatformSockets(void) {
 #if defined(LC_WINDOWS)
     WSADATA data;
     return WSAStartup(MAKEWORD(2, 0), &data);
-#elif defined(__vita__) || defined(__WIIU__)
+#elif defined(__vita__) || defined(__WIIU__) || defined(__3DS__)
     return 0; // already initialized
 #elif defined(LC_POSIX) && !defined(LC_CHROME)
     // Disable SIGPIPE signals to avoid us getting

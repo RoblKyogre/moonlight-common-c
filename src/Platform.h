@@ -33,6 +33,14 @@
 #include <coreinit/fastmutex.h>
 #include <coreinit/fastcondition.h>
 #include <fcntl.h>
+#elif defined(__3DS__)
+#include <unistd.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <malloc.h>
+#include <3ds/thread.h>
+#include <3ds/synchronization.h>
+#include <fcntl.h>
 #else
 #include <unistd.h>
 #include <pthread.h>
