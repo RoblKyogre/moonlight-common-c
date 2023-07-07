@@ -275,6 +275,10 @@ unsigned int LiTestClientConnectivity(const char* testServer, unsigned short ref
                     if (err != 0 || (pfds[i].revents & POLLERR)) {
                         // Get the error code
                         err = (err != 0) ? err : LastSocketFail();
+#ifdef __3DS__
+                        // getsockopt has issues in libctru's implementation, see https://github.com/devkitPro/libctru/issues/412
+                        if (err == -26) err = 0;
+#endif
                     }
 
                     // The TCP test has completed for this port

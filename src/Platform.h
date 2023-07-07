@@ -36,10 +36,13 @@
 #elif defined(__3DS__)
 #include <unistd.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <malloc.h>
 #include <3ds/thread.h>
 #include <3ds/synchronization.h>
+#include <3ds/svc.h>
 #include <fcntl.h>
 #else
 #include <unistd.h>

@@ -33,6 +33,10 @@ DWORD (WINAPI *pfnWlanSetInterface)(HANDLE hClientHandle, CONST GUID *pInterface
 
 #endif
 
+#ifdef __3DS__
+static uint16_t udpBindPort = 10000;
+#endif
+
 void addrToUrlSafeString(struct sockaddr_storage* addr, char* string)
 {
     char addrstr[URLSAFESTRING_LEN];
@@ -241,6 +245,11 @@ SOCKET bindUdpSocket(int addrfamily, int bufferSize) {
 
     memset(&addr, 0, sizeof(addr));
     addr.ss_family = addrfamily;
+#ifdef __3DS__
+    // 3DS requires a defined port in order to bind
+    SET_PORT((struct sockaddr_in*) &addr, udpBindPort);
+    udpBindPort += 1;
+#endif
     if (bind(s, (struct sockaddr*) &addr, addrLen) == SOCKET_ERROR) {
         err = LastSocketError();
         Limelog("bind() failed: %d\n", err);
@@ -434,6 +443,10 @@ SOCKET connectTcpSocket(struct sockaddr_storage* dstaddr, SOCKADDR_LEN addrlen, 
         if (err != 0 || (pfd.revents & POLLERR)) {
             // Get the error code
             err = (err != 0) ? err : LastSocketFail();
+#ifdef __3DS__
+            // getsockopt has issues in libctru's implementation, see https://github.com/devkitPro/libctru/issues/412
+            if (err == -26) err = 0;
+#endif
         }
     }
 
