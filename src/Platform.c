@@ -275,8 +275,10 @@ int PltCreateThread(const char* name, ThreadEntry entry, void* context, PLT_THRE
     OSResumeThread(&thread->thread);
 #elif defined(__3DS__)
     int stack_size = 4 * 1024 * 1024;
+    s32 prio = 0;
+    svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
     thread->thread = threadCreate(ThreadProc,
-                       ctx, stack_size, 0x25,
+                       ctx, stack_size, prio-1,
                        -1, false);
     if (!(&thread->thread))
     {
