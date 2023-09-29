@@ -275,38 +275,64 @@ SOCKET bindUdpSocket(int addrfamily, int bufferSize) {
     }
 #endif
 
-    // We start at the requested recv buffer value and step down until we find
-    // a value that the OS will accept.
-    for (;;) {
-        err = setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&bufferSize, sizeof(bufferSize));
+    if (bufferSize != 0) {
+        // We start at the requested recv buffer value and step down until we find
+        // a value that the OS will accept.
+        for (;;) {
+            err = setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&bufferSize, sizeof(bufferSize));
+            if (err == 0) {
+                // Successfully set a buffer size
+                break;
+            }
+            else if (bufferSize <= RCV_BUFFER_SIZE_MIN) {
+                // Failed to set a buffer size within the allowable range
+                break;
+            }
+            else if (bufferSize - RCV_BUFFER_SIZE_STEP <= RCV_BUFFER_SIZE_MIN) {
+                // Last shot - we're trying the minimum
+                bufferSize = RCV_BUFFER_SIZE_MIN;
+            }
+            else {
+                // Lower the requested size by another step
+                bufferSize -= RCV_BUFFER_SIZE_STEP;
+            }
+        }
+
+#if defined(LC_DEBUG)
         if (err == 0) {
-            // Successfully set a buffer size
-            break;
-        }
-        else if (bufferSize <= RCV_BUFFER_SIZE_MIN) {
-            // Failed to set a buffer size within the allowable range
-            break;
-        }
-        else if (bufferSize - RCV_BUFFER_SIZE_STEP <= RCV_BUFFER_SIZE_MIN) {
-            // Last shot - we're trying the minimum
-            bufferSize = RCV_BUFFER_SIZE_MIN;
+            Limelog("Selected receive buffer size: %d\n", bufferSize);
         }
         else {
-            // Lower the requested size by another step
-            bufferSize -= RCV_BUFFER_SIZE_STEP;
+            Limelog("Unable to set receive buffer size: %d\n", LastSocketError());
         }
-    }
-    
-#if defined(LC_DEBUG)
-    if (err == 0) {
-        Limelog("Selected receive buffer size: %d\n", bufferSize);
-    }
-    else {
-        Limelog("Unable to set receive buffer size: %d\n", LastSocketError());
-    }
+
+        {
+            SOCKADDR_LEN len = sizeof(bufferSize);
+            if (getsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&bufferSize, &len) == 0) {
+                Limelog("Actual receive buffer size: %d\n", bufferSize);
+            }
+        }
 #endif
+    }
 
     return s;
+}
+
+int connectUdpSocket(SOCKET s, struct sockaddr_storage* dstaddr, SOCKADDR_LEN addrlen, unsigned short port) {
+    int err;
+    LC_SOCKADDR saddr;
+
+    LC_ASSERT(port != 0);
+
+    memcpy(&saddr, dstaddr, addrlen);
+    SET_PORT(&saddr, port);
+    err = connect(s, (struct sockaddr*)&saddr, addrlen);
+    if (err < 0) {
+        Limelog("connect() failed for UDP socket: %d\n", (int)LastSocketError());
+        return LastSocketFail();
+    }
+
+    return 0;
 }
 
 int setSocketNonBlocking(SOCKET s, bool enabled) {

@@ -25,11 +25,6 @@ static uint8_t opusHeaderByte;
 
 #define MAX_PACKET_SIZE 1400
 
-// This is much larger than we should typically have buffered, but
-// it needs to be. We need a cushion in case our thread gets blocked
-// for longer than normal.
-#define RTP_RECV_BUFFER (64 * 1024)
-
 typedef struct _QUEUE_AUDIO_PACKET_HEADER {
     LINKED_BLOCKING_QUEUE_ENTRY lentry;
     int size;
@@ -42,12 +37,6 @@ typedef struct _QUEUED_AUDIO_PACKET {
 
 static void AudioPingThreadProc(void* context) {
     char legacyPingData[] = { 0x50, 0x49, 0x4E, 0x47 };
-    LC_SOCKADDR saddr;
-
-    LC_ASSERT(AudioPortNumber != 0);
-
-    memcpy(&saddr, &RemoteAddr, sizeof(saddr));
-    SET_PORT(&saddr, AudioPortNumber);
 
     // We do not check for errors here. Socket errors will be handled
     // on the read-side in ReceiveThreadProc(). This avoids potential
@@ -59,10 +48,10 @@ static void AudioPingThreadProc(void* context) {
             pingCount++;
             AudioPingPayload.sequenceNumber = BE32(pingCount);
 
-            sendto(rtpSocket, (char*)&AudioPingPayload, sizeof(AudioPingPayload), 0, (struct sockaddr*)&saddr, RemoteAddrLen);
+            send(rtpSocket, (char*)&AudioPingPayload, sizeof(AudioPingPayload), 0);
         }
         else {
-            sendto(rtpSocket, legacyPingData, sizeof(legacyPingData), 0, (struct sockaddr*)&saddr, RemoteAddrLen);
+            send(rtpSocket, legacyPingData, sizeof(legacyPingData), 0);
         }
 
         PltSleepMsInterruptible(&udpPingThread, 500);
@@ -88,7 +77,7 @@ int initializeAudioStream(void) {
 
     // For GFE 3.22 compatibility, we must start the audio ping thread before the RTSP handshake.
     // It will not reply to our RTSP PLAY request until the audio ping has been received.
-    rtpSocket = bindUdpSocket(RemoteAddr.ss_family, RTP_RECV_BUFFER);
+    rtpSocket = bindUdpSocket(RemoteAddr.ss_family, 0);
     if (rtpSocket == INVALID_SOCKET) {
         return LastSocketFail();
     }
@@ -103,9 +92,15 @@ int notifyAudioPortNegotiationComplete(void) {
     LC_ASSERT(!pingThreadStarted);
     LC_ASSERT(AudioPortNumber != 0);
 
+    // Connect our audio socket to the target address and port
+    int err = connectUdpSocket(rtpSocket, &RemoteAddr, RemoteAddrLen, AudioPortNumber);
+    if (err != 0) {
+        return err;
+    }
+
     // We may receive audio before our threads are started, but that's okay. We'll
     // drop the first 1 second of audio packets to catch up with the backlog.
-    int err = PltCreateThread("AudioPing", AudioPingThreadProc, NULL, &udpPingThread);
+    err = PltCreateThread("AudioPing", AudioPingThreadProc, NULL, &udpPingThread);
     if (err != 0) {
         return err;
     }

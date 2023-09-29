@@ -5,8 +5,6 @@
 
 #define FIRST_FRAME_PORT 47996
 
-#define RTP_RECV_BUFFER (512 * 1024)
-
 static RTP_VIDEO_QUEUE rtpQueue;
 
 static SOCKET rtpSocket = INVALID_SOCKET;
@@ -25,6 +23,14 @@ static bool receivedFullFrame;
 // the RTP queue will wait for missing/reordered packets.
 #define RTP_QUEUE_DELAY 10
 
+// This is the desired number of video packets that can be
+// stored in the socket's receive buffer. 2048 is chosen
+// because it should be large enough for all reasonable
+// frame sizes (probably 2 or 3 frames) without using too
+// much kernel memory with larger packet sizes. It also
+// can smooth over transient pauses in network traffic
+// and subsequent packet/frame bursts that follow.
+#define RTP_RECV_PACKETS_BUFFERED 2048
 
 // Initialize the video stream
 void initializeVideoStream(void) {
@@ -44,12 +50,6 @@ void destroyVideoStream(void) {
 // UDP Ping proc
 static void VideoPingThreadProc(void* context) {
     char legacyPingData[] = { 0x50, 0x49, 0x4E, 0x47 };
-    LC_SOCKADDR saddr;
-
-    LC_ASSERT(VideoPortNumber != 0);
-
-    memcpy(&saddr, &RemoteAddr, sizeof(saddr));
-    SET_PORT(&saddr, VideoPortNumber);
 
     // We do not check for errors here. Socket errors will be handled
     // on the read-side in ReceiveThreadProc(). This avoids potential
@@ -61,10 +61,10 @@ static void VideoPingThreadProc(void* context) {
             pingCount++;
             VideoPingPayload.sequenceNumber = BE32(pingCount);
 
-            sendto(rtpSocket, (char*)&VideoPingPayload, sizeof(VideoPingPayload), 0, (struct sockaddr*)&saddr, RemoteAddrLen);
+            send(rtpSocket, (char*)&VideoPingPayload, sizeof(VideoPingPayload), 0);
         }
         else {
-            sendto(rtpSocket, legacyPingData, sizeof(legacyPingData), 0, (struct sockaddr*)&saddr, RemoteAddrLen);
+            send(rtpSocket, legacyPingData, sizeof(legacyPingData), 0);
         }
 
         PltSleepMsInterruptible(&udpPingThread, 500);
@@ -143,6 +143,11 @@ static void VideoReceiveThreadProc(void* context) {
                 ListenerCallbacks.connectionTerminated(ML_ERROR_NO_VIDEO_FRAME);
                 break;
             }
+        }
+
+        if (err < (int)sizeof(RTP_PACKET)) {
+            // Runt packet
+            continue;
         }
 
         // Convert fields to host byte-order
@@ -254,10 +259,19 @@ int startVideoStream(void* rendererContext, int drFlags) {
         return err;
     }
 
-    rtpSocket = bindUdpSocket(RemoteAddr.ss_family, RTP_RECV_BUFFER);
+    rtpSocket = bindUdpSocket(RemoteAddr.ss_family, RTP_RECV_PACKETS_BUFFERED * (StreamConfig.packetSize + MAX_RTP_HEADER_SIZE));
     if (rtpSocket == INVALID_SOCKET) {
         VideoCallbacks.cleanup();
         return LastSocketError();
+    }
+
+    // Connect our video socket to the target address and port
+    LC_ASSERT(VideoPortNumber != 0);
+    err = connectUdpSocket(rtpSocket, &RemoteAddr, RemoteAddrLen, VideoPortNumber);
+    if (err != 0) {
+        VideoCallbacks.cleanup();
+        closeSocket(rtpSocket);
+        return err;
     }
 
     VideoCallbacks.start();

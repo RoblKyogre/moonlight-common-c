@@ -63,6 +63,12 @@
 # endif
 #endif
 
+#ifdef LC_WINDOWS
+// Windows doesn't have strtok_r() but it has the same
+// function named strtok_s().
+#define strtok_r strtok_s
+#endif
+
 #include <stdio.h>
 #include "Limelight.h"
 
@@ -118,6 +124,7 @@
 #define BE16(x) (x)
 #define BE32(x) (x)
 #define BE64(x) (x)
+#define IS_LITTLE_ENDIAN() (false)
 #else
 #define LE16(x) (x)
 #define LE32(x) (x)
@@ -125,6 +132,7 @@
 #define BE16(x) BSWAP16(x)
 #define BE32(x) BSWAP32(x)
 #define BE64(x) BSWAP64(x)
+#define IS_LITTLE_ENDIAN() (true)
 #endif
 
 int initializePlatform(void);
