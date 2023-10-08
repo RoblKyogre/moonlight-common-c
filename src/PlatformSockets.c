@@ -37,7 +37,7 @@ DWORD (WINAPI *pfnWlanSetInterface)(HANDLE hClientHandle, CONST GUID *pInterface
 static uint16_t udpBindPort = 10000;
 #endif
 
-void addrToUrlSafeString(struct sockaddr_storage* addr, char* string)
+void addrToUrlSafeString(struct sockaddr_storage* addr, char* string, size_t stringLength)
 {
     char addrstr[URLSAFESTRING_LEN];
 
@@ -47,7 +47,7 @@ void addrToUrlSafeString(struct sockaddr_storage* addr, char* string)
         inet_ntop(addr->ss_family, &sin6->sin6_addr, addrstr, sizeof(addrstr));
 
         // IPv6 addresses need to be enclosed in brackets for URLs
-        sprintf(string, "[%s]", addrstr);
+        snprintf(string, stringLength, "[%s]", addrstr);
     }
     else
 #endif
@@ -56,7 +56,7 @@ void addrToUrlSafeString(struct sockaddr_storage* addr, char* string)
         inet_ntop(addr->ss_family, &sin->sin_addr, addrstr, sizeof(addrstr));
 
         // IPv4 addresses are returned without changes
-        sprintf(string, "%s", addrstr);
+        snprintf(string, stringLength, "%s", addrstr);
     }
 }
 
