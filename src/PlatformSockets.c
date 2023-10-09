@@ -210,7 +210,7 @@ int recvUdpSocket(SOCKET s, char* buffer, int size, bool useSelect) {
 #if defined(LC_WINDOWS)
     } while (err < 0 && LastSocketError() == WSAECONNRESET);
 #else
-    } while (err < 0 && LastSocketError() == ECONNREFUSED);
+    } while (err < 0); //&& LastSocketError() == ECONNREFUSED);
 #endif
 
     return err;

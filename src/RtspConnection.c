@@ -3,7 +3,7 @@
 
 #ifdef __3DS__
 // Force timeouts to be short, 3ds won't connect otherwise
-#define RTSP_CONNECT_TIMEOUT_SEC 1
+#define RTSP_CONNECT_TIMEOUT_SEC 0.1
 #else
 #define RTSP_CONNECT_TIMEOUT_SEC 10
 #endif
