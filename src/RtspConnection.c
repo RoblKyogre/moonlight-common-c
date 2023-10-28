@@ -1,12 +1,7 @@
 #include "Limelight-internal.h"
 #include "Rtsp.h"
 
-#ifdef __3DS__
-// Force timeouts to be short, 3ds won't connect otherwise
-#define RTSP_CONNECT_TIMEOUT_SEC 1
-#else
 #define RTSP_CONNECT_TIMEOUT_SEC 10
-#endif
 
 #define RTSP_RECEIVE_TIMEOUT_SEC 15
 #define RTSP_RETRY_DELAY_MS 500

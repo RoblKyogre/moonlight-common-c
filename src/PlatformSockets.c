@@ -145,6 +145,13 @@ int pollSockets(struct pollfd* pollFds, int pollFdsCount, int timeoutMs) {
     }
 
     return err;
+#elif defined(__3DS__)
+    int i, err = 0;
+    while (err == 0 && i <= timeoutMs) {
+        err = poll(pollFds, pollFdsCount, 0); // need to do this on 3ds since poll will block even if socket is readable before
+        i++;
+    }
+    return err;
 #else
     return poll(pollFds, pollFdsCount, timeoutMs);
 #endif
@@ -210,7 +217,7 @@ int recvUdpSocket(SOCKET s, char* buffer, int size, bool useSelect) {
 #if defined(LC_WINDOWS)
     } while (err < 0 && LastSocketError() == WSAECONNRESET);
 #else
-    } while (err < 0); //&& LastSocketError() == ECONNREFUSED);
+    } while (err < 0 && LastSocketError() == ECONNREFUSED);
 #endif
 
     return err;
