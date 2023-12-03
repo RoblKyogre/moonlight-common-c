@@ -148,7 +148,7 @@ int pollSockets(struct pollfd* pollFds, int pollFdsCount, int timeoutMs) {
 #elif defined(__3DS__)
     int i, err = 0;
     while (err == 0 && (i <= timeoutMs || timeoutMs < 0)) {
-        err = poll(pollFds, pollFdsCount, 0); // need to do this on 3ds since poll will block even if socket is ready before
+        err = poll(pollFds, pollFdsCount, 1); // need to do this on 3ds since poll will block even if socket is ready before
         i++;
     }
     return err;
